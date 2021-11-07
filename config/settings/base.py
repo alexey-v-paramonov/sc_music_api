@@ -42,9 +42,9 @@ LOCALE_PATHS = [str(ROOT_DIR / "locale")]
 # https://docs.djangoproject.com/en/dev/ref/settings/#databases
 
 DATABASES = {
-    "default": env.db("DATABASE_URL", default="postgres:///streaming_center_music_api"),
+#     "default": env.db("DATABASE_URL", default="postgres:///streaming_center_music_api"),
 }
-DATABASES["default"]["ATOMIC_REQUESTS"] = True
+# DATABASES["default"]["ATOMIC_REQUESTS"] = True
 
 # URLS
 # ------------------------------------------------------------------------------
@@ -79,6 +79,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "streaming_center_music_api.users.apps.UsersConfig",
     # Your stuff: custom apps go here
+    "streaming_center_music_api.music.apps.MusicConfig",
 ]
 # https://docs.djangoproject.com/en/dev/ref/settings/#installed-apps
 INSTALLED_APPS = DJANGO_APPS + THIRD_PARTY_APPS + LOCAL_APPS
