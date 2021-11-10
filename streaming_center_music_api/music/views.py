@@ -1,3 +1,4 @@
+import string
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -13,8 +14,13 @@ class MusicAPI(APIView):
     authentication_classes = ()
     permission_classes = ()
 
+    def is_successful_search(self, track_info):
+        return bool(
+            track_info.get("isrc") or track_info.get('small_image') or track_info.get('medium_image') or track_info.get('large_image')
+        )
+
     def get(self, request):
-        q = request.query_params.get("q")
+        q = request.query_params.get("q", "").strip()
         if not q:
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
@@ -48,4 +54,7 @@ class MusicAPI(APIView):
                 track_info['medium_image'] = album['images'][-2]['url']
                 track_info['large_image'] = album['images'][-3]['url']
 
+        # Store into the cache if something was found
+        if self.is_successful_search(track_info):
+            key = q.translate(str.maketrans("", "", string.punctuation)).replace(" ", "")
         return Response(track_info)
