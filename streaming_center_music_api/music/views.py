@@ -90,5 +90,6 @@ class MusicAPI(APIView):
 
         # Store into the cache if something was found
         if self.is_successful_search(track_info):
+            track_info["q"] = q
             r.set(key, json.dumps(track_info), ex=settings.TRACK_INFO_EXPIRE_SECONDS)
         return Response(track_info)
