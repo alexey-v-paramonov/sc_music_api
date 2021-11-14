@@ -69,7 +69,7 @@ class MusicAPI(APIView):
                 track_info["medium_image"] = album["images"][-2]["url"]
                 track_info["large_image"] = album["images"][-3]["url"]
 
-        # LastFM
+        # LastFM (no ISRC)
         API_BASE = "https://ws.audioscrobbler.com/2.0/";
         artist_q = "metallica"
         track_q = "battery"
