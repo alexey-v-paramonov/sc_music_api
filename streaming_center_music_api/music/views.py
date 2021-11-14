@@ -33,8 +33,18 @@ class MusicAPI(APIView):
         )
 
     def get(self, request):
+        # artist - title query
         q = request.query_params.get("q", "").strip()
-        if not q or len(q) < 5:
+        # artist and title in separate params
+        title = request.query_params.get("t", "").strip()
+        artist = request.query_params.get("a", "").strip()
+        do_q = q and len(q) < 5
+        if do_q and q.find(" - ") > 0:
+            artist, title = (q.split(" - ")[0], " - ".join(q.split(" - ")[1:]))
+
+        do_title_artist = title and artist
+
+        if not (do_q or do_title_artist):
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
         key = q.translate(str.maketrans("", "", string.punctuation)).replace(" ", "")
@@ -54,7 +64,7 @@ class MusicAPI(APIView):
         )
         results = None
         # try:
-        #     results = spotify.search(q=q, limit=1, type="track")
+        #     results = spotify.search(q=q if do_q or f"{artist} - {title}", limit=1, type="track")
         # except Exception as e:
         #     print(e)
         #     pass
@@ -88,6 +98,9 @@ class MusicAPI(APIView):
                 track_info["medium_image"] = images[-2]["#text"]
                 track_info["large_image"] = images[-1]["#text"]
 
+        # Soundexchange API
+        if do_title_artist:
+            pass
         # Store into the cache if something was found
         if self.is_successful_search(track_info):
             track_info["q"] = q
