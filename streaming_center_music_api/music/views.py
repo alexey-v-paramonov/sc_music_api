@@ -80,29 +80,56 @@ class MusicAPI(APIView):
                 track_info["large_image"] = album["images"][-3]["url"]
 
         # LastFM (no ISRC)
-        API_BASE = "https://ws.audioscrobbler.com/2.0/";
-        artist_q = "metallica"
-        track_q = "battery"
-        url = f"{API_BASE}?artist={artist_q}&track={track_q}&method=track.getInfo&api_key={settings.LASTFM_API_KEY}&format=json"
-        try:
-            response = requests.get(url, timeout=2)
-        except:
-            response = None
+        # API_BASE = "https://ws.audioscrobbler.com/2.0/";
+        # artist_q = "metallica"
+        # track_q = "battery"
+        # url = f"{API_BASE}?artist={artist_q}&track={track_q}&method=track.getInfo&api_key={settings.LASTFM_API_KEY}&format=json"
+        # try:
+        #     response = requests.get(url, timeout=2)
+        # except:
+        #     response = None
 
-        if response and response.ok:
-            j = response.json()
-            track_info["track_mbid"] = j.get('track', {}).get('mbid')
-            images = j.get('track', {}).get('album', {}).get('image')
-            if len(images) > 2:
-                track_info["small_image"] = images[-3]["#text"]
-                track_info["medium_image"] = images[-2]["#text"]
-                track_info["large_image"] = images[-1]["#text"]
+        # if response and response.ok:
+        #     j = response.json()
+        #     track_info["track_mbid"] = j.get('track', {}).get('mbid')
+        #     images = j.get('track', {}).get('album', {}).get('image')
+        #     if len(images) > 2:
+        #         track_info["small_image"] = images[-3]["#text"]
+        #         track_info["medium_image"] = images[-2]["#text"]
+        #         track_info["large_image"] = images[-1]["#text"]
 
         # Soundexchange API
-        if do_title_artist:
-            pass
+        if do_title_artist and not track_info.get("isrc"):
+            url = "https://isrcsearch.ifpi.org/#!/search"
+            client = requests.session()
+
+            response = client.get(url, timeout=2)
+            if response.ok:
+                url = "https://isrcsearch.ifpi.org/api/v1/search"
+                data = {
+                    "number": 1,
+                    "searchFields": {
+                        "artistName": artist,
+                        "trackTitle": title,
+                    },
+                    "showReleases": 0,
+                    "start": 0,
+                }
+                response = client.post(
+                    url, json=data, timeout=2,
+                    headers={
+                        "x-csrftoken": client.cookies["csrftoken"],
+                        "referer": "https://isrcsearch.ifpi.org/"
+                    }
+                )
+                if response.ok:
+                    track_info["isrc"] = response.json().get("displayDocs", [])[0].get("isrcCode")
+                    print(track_info["isrc"])
+
         # Store into the cache if something was found
         if self.is_successful_search(track_info):
             track_info["q"] = q
+            track_info["a"] = artist
+            track_info["t"] = title
             r.set(key, json.dumps(track_info), ex=settings.TRACK_INFO_EXPIRE_SECONDS)
         return Response(track_info)
