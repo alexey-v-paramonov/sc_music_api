@@ -140,30 +140,15 @@ class MusicAPI(APIView):
             try:
                 result = musicbrainzngs.search_recordings(*query, strict=True)
             except:
-                return ret
-
-            for r in result.get('recording-list', []):
-                score = int(r.get('ext:score', 0))
-                if score > 85:
-                    isrc = r.get('isrc-list', [])
-                    if isrc:
-                        track_info['isrc'] = isrc[0]
-                        break
-
-    for r in result.get('recording-list', []):
-        score = int(r.get('ext:score', 0))
-        if score > 90:
-            a = r.get("artist-credit-phrase")
-            t = r.get("title")
-            isrc = r.get('isrc-list', None)
-            if a and not ret.get('artist'):
-                ret['artist'] = a
-            if t and not ret.get('title'):
-                ret['title'] = t
-            if isrc:
-                ret['isrc'] = isrc[0]
-                break
-    return ret
+                pass
+            else:
+                for r in result.get('recording-list', []):
+                    score = int(r.get('ext:score', 0))
+                    if score > 85:
+                        isrc = r.get('isrc-list', [])
+                        if isrc:
+                            track_info['isrc'] = isrc[0]
+                            break
 
         # Store into the cache if something was found
         if self.is_successful_search(track_info):
