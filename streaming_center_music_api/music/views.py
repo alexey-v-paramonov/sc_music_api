@@ -49,11 +49,7 @@ class MusicAPI(APIView):
         if not (do_q or do_title_artist):
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
-        if do_q:
-            key = q.translate(str.maketrans("", "", string.punctuation)).replace(" ", "")
-        else:
-            key = f"{artist} - {title}".translate(str.maketrans("", "", string.punctuation)).replace(" ", "")
-
+        key = (q if do_q else f"{artist} - {title}").translate(str.maketrans("", "", string.punctuation)).replace(" ", "").lower()
         r = redis.Redis(host="localhost", port=6379, db=0)
         cached_track_info = r.get(key)
         if cached_track_info:
