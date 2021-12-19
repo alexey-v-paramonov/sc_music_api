@@ -49,7 +49,11 @@ class MusicAPI(APIView):
         if not (do_q or do_title_artist):
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
-        key = q.translate(str.maketrans("", "", string.punctuation)).replace(" ", "")
+        if do_q:
+            key = q.translate(str.maketrans("", "", string.punctuation)).replace(" ", "")
+        else:
+            key = f"{artist} - {title}".translate(str.maketrans("", "", string.punctuation)).replace(" ", "")
+
         r = redis.Redis(host="localhost", port=6379, db=0)
         cached_track_info = r.get(key)
         if cached_track_info:
@@ -88,23 +92,24 @@ class MusicAPI(APIView):
                 track_info["large_image"] = album["images"][-3]["url"]
 
         # LastFM (no ISRC)
-        API_BASE = "https://ws.audioscrobbler.com/2.0/";
-        artist_q = "metallica"
-        track_q = "battery"
-        url = f"{API_BASE}?artist={artist_q}&track={track_q}&method=track.getInfo&api_key={settings.LASTFM_API_KEY}&format=json"
-        try:
-            response = requests.get(url, timeout=2)
-        except:
-            response = None
+        if do_title_artist:
+            API_BASE = "https://ws.audioscrobbler.com/2.0/";
+            artist_q = artist
+            track_q = title
+            url = f"{API_BASE}?artist={artist_q}&track={track_q}&method=track.getInfo&api_key={settings.LASTFM_API_KEY}&format=json"
+            try:
+                response = requests.get(url, timeout=2)
+            except:
+                response = None
 
-        if response and response.ok:
-            j = response.json()
-            track_info["track_mbid"] = j.get('track', {}).get('mbid')
-            images = j.get('track', {}).get('album', {}).get('image')
-            if len(images) > 2:
-                track_info["small_image"] = images[-3]["#text"]
-                track_info["medium_image"] = images[-2]["#text"]
-                track_info["large_image"] = images[-1]["#text"]
+            if response and response.ok:
+                j = response.json()
+                track_info["track_mbid"] = j.get('track', {}).get('mbid')
+                images = j.get('track', {}).get('album', {}).get('image')
+                if len(images) > 2:
+                    track_info["small_image"] = images[-3]["#text"]
+                    track_info["medium_image"] = images[-2]["#text"]
+                    track_info["large_image"] = images[-1]["#text"]
 
         # Soundexchange API
         if do_title_artist and not track_info.get("isrc"):
