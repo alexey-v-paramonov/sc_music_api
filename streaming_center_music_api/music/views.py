@@ -3,6 +3,8 @@ import string
 import requests
 import redis
 import spotipy
+import musicbrainzngs
+
 from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
@@ -33,8 +35,18 @@ class MusicAPI(APIView):
         )
 
     def get(self, request):
+        # artist - title query
         q = request.query_params.get("q", "").strip()
-        if not q or len(q) < 5:
+        # artist and title in separate params
+        title = request.query_params.get("t", "").strip()
+        artist = request.query_params.get("a", "").strip()
+        do_q = q and len(q) < 5
+        if do_q and q.find(" - ") > 0:
+            artist, title = (q.split(" - ")[0], " - ".join(q.split(" - ")[1:]))
+
+        do_title_artist = title and artist
+
+        if not (do_q or do_title_artist):
             return Response(status=status.HTTP_400_BAD_REQUEST)
 
         key = q.translate(str.maketrans("", "", string.punctuation)).replace(" ", "")
@@ -54,7 +66,7 @@ class MusicAPI(APIView):
         )
         results = None
         # try:
-        #     results = spotify.search(q=q, limit=1, type="track")
+        #     results = spotify.search(q=q if do_q or f"{artist} - {title}", limit=1, type="track")
         # except Exception as e:
         #     print(e)
         #     pass
@@ -69,27 +81,79 @@ class MusicAPI(APIView):
                 track_info["medium_image"] = album["images"][-2]["url"]
                 track_info["large_image"] = album["images"][-3]["url"]
 
-        # LastFM
-        API_BASE = "https://ws.audioscrobbler.com/2.0/";
-        artist_q = "metallica"
-        track_q = "battery"
-        url = f"{API_BASE}?artist={artist_q}&track={track_q}&method=track.getInfo&api_key={settings.LASTFM_API_KEY}&format=json"
-        try:
-            response = requests.get(url, timeout=2)
-        except:
-            response = None
+        # LastFM (no ISRC)
+        # API_BASE = "https://ws.audioscrobbler.com/2.0/";
+        # artist_q = "metallica"
+        # track_q = "battery"
+        # url = f"{API_BASE}?artist={artist_q}&track={track_q}&method=track.getInfo&api_key={settings.LASTFM_API_KEY}&format=json"
+        # try:
+        #     response = requests.get(url, timeout=2)
+        # except:
+        #     response = None
 
-        if response and response.ok:
-            j = response.json()
-            track_info["track_mbid"] = j.get('track', {}).get('mbid')
-            images = j.get('track', {}).get('album', {}).get('image')
-            if len(images) > 2:
-                track_info["small_image"] = images[-3]["#text"]
-                track_info["medium_image"] = images[-2]["#text"]
-                track_info["large_image"] = images[-1]["#text"]
+        # if response and response.ok:
+        #     j = response.json()
+        #     track_info["track_mbid"] = j.get('track', {}).get('mbid')
+        #     images = j.get('track', {}).get('album', {}).get('image')
+        #     if len(images) > 2:
+        #         track_info["small_image"] = images[-3]["#text"]
+        #         track_info["medium_image"] = images[-2]["#text"]
+        #         track_info["large_image"] = images[-1]["#text"]
+
+        # Soundexchange API
+        if do_title_artist and not track_info.get("isrc"):
+            url = "https://isrcsearch.ifpi.org/#!/search"
+            client = requests.session()
+
+            response = client.get(url, timeout=2)
+            if response.ok:
+                url = "https://isrcsearch.ifpi.org/api/v1/search"
+                data = {
+                    "number": 1,
+                    "searchFields": {
+                        "artistName": artist,
+                        "trackTitle": title,
+                    },
+                    "showReleases": 0,
+                    "start": 0,
+                }
+                response = client.post(
+                    url, json=data, timeout=2,
+                    headers={
+                        "x-csrftoken": client.cookies["csrftoken"],
+                        "referer": "https://isrcsearch.ifpi.org/"
+                    }
+                )
+                if response.ok:
+                    track_info["isrc"] = response.json().get("displayDocs", [])[0].get("isrcCode")
+                    print(track_info["isrc"])
+
+        # Use Musicbrainz for ISRC lookup
+        if not track_info.get("isrc"):
+            musicbrainzngs.set_useragent(settings.MUSICBRAINZ_AGENT, "0.1", settings.MUSICBRAINZ_AGENT_URL)
+            query = {"query": q}
+            if do_title_artist:
+                query = {
+                    "artist": artist,
+                    "recording": title
+                }
+            try:
+                result = musicbrainzngs.search_recordings(*query, strict=True)
+            except:
+                pass
+            else:
+                for r in result.get('recording-list', []):
+                    score = int(r.get('ext:score', 0))
+                    if score > 85:
+                        isrc = r.get('isrc-list', [])
+                        if isrc:
+                            track_info['isrc'] = isrc[0]
+                            break
 
         # Store into the cache if something was found
         if self.is_successful_search(track_info):
             track_info["q"] = q
+            track_info["a"] = artist
+            track_info["t"] = title
             r.set(key, json.dumps(track_info), ex=settings.TRACK_INFO_EXPIRE_SECONDS)
         return Response(track_info)
