@@ -38,7 +38,7 @@ class MusicAPI(APIView):
         # artist and title in separate params
         title = request.query_params.get("t", "").strip()
         artist = request.query_params.get("a", "").strip()
-        do_q = q and len(q) < 5
+        do_q = q and len(q) > 5
         if do_q and q.find(" - ") > 0:
             artist, title = (q.split(" - ")[0], " - ".join(q.split(" - ")[1:]))
 
@@ -49,9 +49,12 @@ class MusicAPI(APIView):
 
         key = q.translate(str.maketrans("", "", string.punctuation)).replace(" ", "")
         r = redis.Redis(host="localhost", port=6379, db=0)
-        #cached_track_info = r.get(key)
-        #if cached_track_info:
-        #    return Response(json.loads(cached_track_info))
+        cached_track_info = r.get(key)
+        if cached_track_info:
+            data = json.loads(cached_track_info)
+            data['cached'] = True
+            data["key"] = key
+            return Response(data)
 
         track_info = {}
         client_credentials_manager = SpotifyClientCredentials(
@@ -63,11 +66,14 @@ class MusicAPI(APIView):
             client_credentials_manager=client_credentials_manager, requests_timeout=2
         )
         results = None
-        # try:
-        #     results = spotify.search(q=q if do_q or f"{artist} - {title}", limit=1, type="track")
-        # except Exception as e:
-        #     print(e)
-        #     pass
+        try:
+            results = spotify.search(
+                q=(q if do_q else f"{artist} - {title}"),
+                limit=1,
+                type="track"
+            )
+        except Exception as e:
+            pass
 
         if results and results["tracks"]["items"]:
             track = results["tracks"]["items"][0]
@@ -80,23 +86,23 @@ class MusicAPI(APIView):
                 track_info["large_image"] = album["images"][-3]["url"]
 
         # LastFM (no ISRC)
-        # API_BASE = "https://ws.audioscrobbler.com/2.0/";
-        # artist_q = "metallica"
-        # track_q = "battery"
-        # url = f"{API_BASE}?artist={artist_q}&track={track_q}&method=track.getInfo&api_key={settings.LASTFM_API_KEY}&format=json"
-        # try:
-        #     response = requests.get(url, timeout=2)
-        # except:
-        #     response = None
+        API_BASE = "https://ws.audioscrobbler.com/2.0/";
+        artist_q = "metallica"
+        track_q = "battery"
+        url = f"{API_BASE}?artist={artist_q}&track={track_q}&method=track.getInfo&api_key={settings.LASTFM_API_KEY}&format=json"
+        try:
+            response = requests.get(url, timeout=2)
+        except:
+            response = None
 
-        # if response and response.ok:
-        #     j = response.json()
-        #     track_info["track_mbid"] = j.get('track', {}).get('mbid')
-        #     images = j.get('track', {}).get('album', {}).get('image')
-        #     if len(images) > 2:
-        #         track_info["small_image"] = images[-3]["#text"]
-        #         track_info["medium_image"] = images[-2]["#text"]
-        #         track_info["large_image"] = images[-1]["#text"]
+        if response and response.ok:
+            j = response.json()
+            track_info["track_mbid"] = j.get('track', {}).get('mbid')
+            images = j.get('track', {}).get('album', {}).get('image')
+            if len(images) > 2:
+                track_info["small_image"] = images[-3]["#text"]
+                track_info["medium_image"] = images[-2]["#text"]
+                track_info["large_image"] = images[-1]["#text"]
 
         # Soundexchange API
         if do_title_artist and not track_info.get("isrc"):
@@ -124,12 +130,14 @@ class MusicAPI(APIView):
                 )
                 if response.ok:
                     track_info["isrc"] = response.json().get("displayDocs", [])[0].get("isrcCode")
-                    print(track_info["isrc"])
+                    # print(track_info["isrc"])
 
         # Store into the cache if something was found
         if self.is_successful_search(track_info):
             track_info["q"] = q
             track_info["a"] = artist
             track_info["t"] = title
+            track_info["cached"] = False
+            track_info["key"] = key
             r.set(key, json.dumps(track_info), ex=settings.TRACK_INFO_EXPIRE_SECONDS)
         return Response(track_info)
