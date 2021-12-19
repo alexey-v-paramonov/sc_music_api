@@ -3,6 +3,8 @@ import string
 import requests
 import redis
 import spotipy
+import musicbrainzngs
+
 from django.conf import settings
 from rest_framework import status
 from rest_framework.response import Response
@@ -131,6 +133,28 @@ class MusicAPI(APIView):
                 if response.ok:
                     track_info["isrc"] = response.json().get("displayDocs", [])[0].get("isrcCode")
                     # print(track_info["isrc"])
+
+        # Use Musicbrainz for ISRC lookup
+        if not track_info.get("isrc"):
+            musicbrainzngs.set_useragent(settings.MUSICBRAINZ_AGENT, "0.1", settings.MUSICBRAINZ_AGENT_URL)
+            query = {"query": q}
+            if do_title_artist:
+                query = {
+                    "artist": artist,
+                    "recording": title
+                }
+            try:
+                result = musicbrainzngs.search_recordings(*query, strict=True)
+            except:
+                pass
+            else:
+                for r in result.get('recording-list', []):
+                    score = int(r.get('ext:score', 0))
+                    if score > 85:
+                        isrc = r.get('isrc-list', [])
+                        if isrc:
+                            track_info['isrc'] = isrc[0]
+                            break
 
         # Store into the cache if something was found
         if self.is_successful_search(track_info):
