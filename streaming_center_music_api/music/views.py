@@ -138,7 +138,7 @@ class MusicAPI(APIView):
                         # print(track_info["isrc"])
 
         # Use Musicbrainz for ISRC lookup
-        if not track_info.get("isrc"):
+        if not track_info.get("isrc") and hasattr(settings, "MUSICBRAINZ_AGENT"):
             musicbrainzngs.set_useragent(settings.MUSICBRAINZ_AGENT, "0.1", settings.MUSICBRAINZ_AGENT_URL)
             query = {"query": q}
             if do_title_artist:
