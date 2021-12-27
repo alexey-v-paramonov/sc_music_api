@@ -102,7 +102,7 @@ class MusicAPI(APIView):
                 j = response.json()
                 track_info["track_mbid"] = j.get('track', {}).get('mbid')
                 images = j.get('track', {}).get('album', {}).get('image')
-                if len(images) > 2:
+                if images and len(images) > 2:
                     track_info["small_image"] = images[-3]["#text"]
                     track_info["medium_image"] = images[-2]["#text"]
                     track_info["large_image"] = images[-1]["#text"]
@@ -132,8 +132,10 @@ class MusicAPI(APIView):
                     }
                 )
                 if response.ok:
-                    track_info["isrc"] = response.json().get("displayDocs", [])[0].get("isrcCode")
-                    # print(track_info["isrc"])
+                    docs = response.json().get("displayDocs", [])
+                    if docs and len(docs) > 0:
+                        track_info["isrc"] = docs[0].get("isrcCode")
+                        # print(track_info["isrc"])
 
         # Use Musicbrainz for ISRC lookup
         if not track_info.get("isrc"):
