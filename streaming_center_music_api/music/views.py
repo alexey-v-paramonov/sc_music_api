@@ -145,8 +145,7 @@ class MusicAPI(APIView):
                         # print(track_info["isrc"])
 
         # Use Musicbrainz for ISRC lookup
-        if 0:
-            # if not track_info.get("isrc") and hasattr(settings, "MUSICBRAINZ_AGENT"):
+        if not track_info.get("isrc") and hasattr(settings, "MUSICBRAINZ_AGENT"):
             musicbrainzngs.set_useragent(settings.MUSICBRAINZ_AGENT, "0.1", settings.MUSICBRAINZ_AGENT_URL)
             query = {"query": q}
             if do_title_artist:
@@ -155,13 +154,13 @@ class MusicAPI(APIView):
                     "recording": title
                 }
             try:
-                result = musicbrainzngs.search_recordings(*query, strict=True)
+                result = musicbrainzngs.search_recordings(**query, strict=True)
             except:
                 pass
             else:
                 for mbr in result.get('recording-list', []):
                     score = int(mbr.get('ext:score', 0))
-                    if score > 85:
+                    if score > 90:
                         isrc = mbr.get('isrc-list', [])
                         if isrc:
                             track_info['isrc'] = isrc[0]
