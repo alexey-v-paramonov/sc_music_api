@@ -34,6 +34,13 @@ class MusicAPI(APIView):
             and track_info.get("large_image")
         )
 
+    def is_clipart_complete(self, track_info):
+        return bool(
+            track_info.get("small_image")
+            and track_info.get("medium_image")
+            and track_info.get("large_image")
+        )
+
     def get(self, request):
         # artist - title query
         q = request.query_params.get("q", "").strip()
@@ -88,7 +95,7 @@ class MusicAPI(APIView):
                 track_info["large_image"] = album["images"][-3]["url"]
 
         # LastFM (no ISRC)
-        if do_title_artist:
+        if not self.is_clipart_complete(track_info) and do_title_artist:
             API_BASE = "https://ws.audioscrobbler.com/2.0/";
             artist_q = artist
             track_q = title
