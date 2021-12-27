@@ -151,10 +151,10 @@ class MusicAPI(APIView):
             except:
                 pass
             else:
-                for r in result.get('recording-list', []):
-                    score = int(r.get('ext:score', 0))
+                for mbr in result.get('recording-list', []):
+                    score = int(mbr.get('ext:score', 0))
                     if score > 85:
-                        isrc = r.get('isrc-list', [])
+                        isrc = mbr.get('isrc-list', [])
                         if isrc:
                             track_info['isrc'] = isrc[0]
                             break
