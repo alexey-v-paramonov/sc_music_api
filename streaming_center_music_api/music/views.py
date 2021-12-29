@@ -174,4 +174,6 @@ class MusicAPI(APIView):
             track_info["cached"] = False
             track_info["key"] = key
             r.set(key, json.dumps(track_info), ex=settings.TRACK_INFO_EXPIRE_SECONDS)
+        else:
+            r.set(key, json.dumps(track_info), ex=settings.NOT_FOUND_INFO_EXPIRE_SECONDS)
         return Response(track_info)
