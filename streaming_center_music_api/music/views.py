@@ -107,7 +107,8 @@ class MusicAPI(APIView):
 
             if response and response.ok:
                 j = response.json()
-                track_info["track_mbid"] = j.get('track', {}).get('mbid')
+                if j.get('track', {}).get('mbid'):
+                    track_info["track_mbid"] = j.get('track', {}).get('mbid')
                 images = j.get('track', {}).get('album', {}).get('image')
                 if images and len(images) > 2:
                     track_info["small_image"] = images[-3]["#text"]
