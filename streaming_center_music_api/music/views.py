@@ -58,8 +58,10 @@ class MusicAPI(APIView):
 
         key = (q if do_q else f"{artist} - {title}").translate(str.maketrans("", "", string.punctuation)).replace(" ", "").lower()
         r = redis.Redis(host="localhost", port=6379, db=0)
+        r.incr('stats_total_requests')
         cached_track_info = r.get(key)
         if cached_track_info:
+            r.incr('stats_cached_responses')
             data = json.loads(cached_track_info)
             data['cached'] = True
             data["key"] = key
@@ -75,6 +77,7 @@ class MusicAPI(APIView):
             client_credentials_manager=client_credentials_manager, requests_timeout=2
         )
         results = None
+        r.incr('stats_spotify_requests')
         try:
             results = spotify.search(
                 q=(q if do_q else f"{artist} - {title}"),
@@ -82,9 +85,11 @@ class MusicAPI(APIView):
                 type="track"
             )
         except Exception as e:
+            r.incr('stats_spotify_errors')
             pass
 
         if results and results["tracks"]["items"]:
+            r.incr('stats_spotify_found')
             track = results["tracks"]["items"][0]
             ext_ids = track.get("external_ids", {})
             track_info["isrc"] = ext_ids.get("isrc", None)
@@ -100,9 +105,12 @@ class MusicAPI(APIView):
             artist_q = artist
             track_q = title
             url = f"{API_BASE}?artist={artist_q}&track={track_q}&method=track.getInfo&api_key={settings.LASTFM_API_KEY}&format=json"
+            r.incr('stats_lastfm_requests')
+
             try:
                 response = requests.get(url, timeout=2)
             except:
+                r.incr('stats_lastfm_errors')
                 response = None
 
             if response and response.ok:
@@ -111,6 +119,7 @@ class MusicAPI(APIView):
                     track_info["track_mbid"] = j.get('track', {}).get('mbid')
                 images = j.get('track', {}).get('album', {}).get('image')
                 if images and len(images) > 2:
+                    r.incr('stats_lastfm_found')
                     track_info["small_image"] = images[-3]["#text"]
                     track_info["medium_image"] = images[-2]["#text"]
                     track_info["large_image"] = images[-1]["#text"]
@@ -119,31 +128,40 @@ class MusicAPI(APIView):
         if do_title_artist and not track_info.get("isrc"):
             url = "https://isrcsearch.ifpi.org/#!/search"
             client = requests.session()
+            r.incr('stats_soundexchange_requests')
 
-            response = client.get(url, timeout=2)
-            if response.ok:
-                url = "https://isrcsearch.ifpi.org/api/v1/search"
-                data = {
-                    "number": 1,
-                    "searchFields": {
-                        "artistName": artist,
-                        "trackTitle": title,
-                    },
-                    "showReleases": 0,
-                    "start": 0,
-                }
-                response = client.post(
-                    url, json=data, timeout=2,
-                    headers={
-                        "x-csrftoken": client.cookies["csrftoken"],
-                        "referer": "https://isrcsearch.ifpi.org/"
-                    }
-                )
+            try:
+                response = client.get(url, timeout=2)
+            except:
+                r.incr('stats_soundexchange_errors')
+            else:
                 if response.ok:
-                    docs = response.json().get("displayDocs", [])
-                    if docs and len(docs) > 0:
-                        track_info["isrc"] = docs[0].get("isrcCode")
-                        # print(track_info["isrc"])
+                    url = "https://isrcsearch.ifpi.org/api/v1/search"
+                    data = {
+                        "number": 1,
+                        "searchFields": {
+                            "artistName": artist,
+                            "trackTitle": title,
+                        },
+                        "showReleases": 0,
+                        "start": 0,
+                    }
+                    try:
+                        response = client.post(
+                            url, json=data, timeout=2,
+                            headers={
+                                "x-csrftoken": client.cookies["csrftoken"],
+                                "referer": "https://isrcsearch.ifpi.org/"
+                            }
+                        )
+                    except:
+                        r.incr('stats_soundexchange_errors')
+                    else:
+                        if response.ok:
+                            docs = response.json().get("displayDocs", [])
+                            if docs and len(docs) > 0:
+                                track_info["isrc"] = docs[0].get("isrcCode")
+                                r.incr('stats_soundexchange_found')
 
         # Use Musicbrainz for ISRC lookup
         if not track_info.get("isrc") and hasattr(settings, "MUSICBRAINZ_AGENT"):
@@ -154,9 +172,11 @@ class MusicAPI(APIView):
                     "artist": artist,
                     "recording": title
                 }
+            r.incr('stats_musicbrainz_requests')
             try:
                 result = musicbrainzngs.search_recordings(**query, strict=True)
             except:
+                r.incr('stats_musicbrainz_errors')
                 pass
             else:
                 for mbr in result.get('recording-list', []):
@@ -164,6 +184,7 @@ class MusicAPI(APIView):
                     if score > 90:
                         isrc = mbr.get('isrc-list', [])
                         if isrc:
+                            r.incr('stats_musicbrainz_found')
                             track_info['isrc'] = isrc[0]
                             break
 
