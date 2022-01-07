@@ -107,7 +107,8 @@ class MusicAPI(APIView):
 
             if response and response.ok:
                 j = response.json()
-                track_info["track_mbid"] = j.get('track', {}).get('mbid')
+                if j.get('track', {}).get('mbid'):
+                    track_info["track_mbid"] = j.get('track', {}).get('mbid')
                 images = j.get('track', {}).get('album', {}).get('image')
                 if images and len(images) > 2:
                     track_info["small_image"] = images[-3]["#text"]
@@ -147,7 +148,7 @@ class MusicAPI(APIView):
         # Use Musicbrainz for ISRC lookup
         if not track_info.get("isrc") and hasattr(settings, "MUSICBRAINZ_AGENT"):
             musicbrainzngs.set_useragent(settings.MUSICBRAINZ_AGENT, "0.1", settings.MUSICBRAINZ_AGENT_URL)
-            query = {"query": q}
+            query = {"query": f"recording: {q}"}
             if do_title_artist:
                 query = {
                     "artist": artist,
