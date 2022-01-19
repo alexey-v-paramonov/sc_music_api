@@ -98,6 +98,9 @@ class MusicAPI(APIView):
                 track_info["small_image"] = album["images"][-1]["url"]
                 track_info["medium_image"] = album["images"][-2]["url"]
                 track_info["large_image"] = album["images"][-3]["url"]
+            album_title = album.get('name')
+            if album_title:
+                track_info["album"] = album_title
 
         # LastFM (no ISRC)
         if not self.is_clipart_complete(track_info) and do_title_artist:
