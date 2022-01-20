@@ -119,7 +119,7 @@ class MusicAPI(APIView):
                 album_title = data.get('albumName')
                 isrc = data.get('isrc')
                 if album_title:
-                   track_info["album"] = album_title
+                    track_info["album"] = album_title
                 if isrc:
                     track_info["isrc"] = isrc
                 # Artwork
@@ -147,12 +147,18 @@ class MusicAPI(APIView):
             if response and response.ok:
                 if j.get('track', {}).get('mbid'):
                     track_info["track_mbid"] = j.get('track', {}).get('mbid')
-                images = j.get('track', {}).get('album', {}).get('image')
-                if images and len(images) > 2:
-                    r.incr('stats_lastfm_found')
-                    track_info["small_image"] = images[-3]["#text"]
-                    track_info["medium_image"] = images[-2]["#text"]
-                    track_info["large_image"] = images[-1]["#text"]
+                album = j.get('track', {}).get('album')
+                if album:
+                    album_title = album.get('title')
+                    if album_title and not track_info.get("album"):
+                        track_info["album"] = album_title
+
+                    images = album.get('image')
+                    if images and len(images) > 2:
+                        r.incr('stats_lastfm_found')
+                        track_info["small_image"] = images[-3]["#text"]
+                        track_info["medium_image"] = images[-2]["#text"]
+                        track_info["large_image"] = images[-1]["#text"]
 
         # Soundexchange API
         if do_title_artist and not track_info.get("isrc"):
