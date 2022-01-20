@@ -139,12 +139,12 @@ class MusicAPI(APIView):
 
             try:
                 response = requests.get(url, timeout=2)
+                j = response.json()
             except:
                 r.incr('stats_lastfm_errors')
                 response = None
 
             if response and response.ok:
-                j = response.json()
                 if j.get('track', {}).get('mbid'):
                     track_info["track_mbid"] = j.get('track', {}).get('mbid')
                 images = j.get('track', {}).get('album', {}).get('image')
