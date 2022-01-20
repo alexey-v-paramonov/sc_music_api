@@ -4,6 +4,7 @@ import requests
 import redis
 import spotipy
 import musicbrainzngs
+import applemusicpy
 
 from django.conf import settings
 from rest_framework import status
@@ -68,6 +69,7 @@ class MusicAPI(APIView):
             return Response(data)
 
         track_info = {}
+        # Spotify API
         client_credentials_manager = SpotifyClientCredentials(
             settings.SPOTIFY_CLIENT_ID,
             settings.SPOTIFY_CLIENT_SECRET,
@@ -101,6 +103,31 @@ class MusicAPI(APIView):
             album_title = album.get('name')
             if album_title:
                 track_info["album"] = album_title
+
+        # Apple API
+        if not self.is_clipart_complete(track_info) or not track_info.get("isrc") or not track_info.get("album"):
+            r.incr('stats_apple_requests')
+            apple = applemusicpy.AppleMusic(settings.APPLE_SECRET_KEY, settings.APPLE_KEY_ID, settings.APPLE_TEAM_ID, requests_timeout=5)
+            try:
+                results = apple.search(q if do_q else f"{artist} - {title}", types=['songs'], limit=1)
+            except Exception as e:
+                r.incr('stats_apple_errors')
+                pass
+            if results and results["results"].get('songs', []):
+                r.incr('stats_apple_found')
+                data = results["results"]["songs"]["data"][0]["attributes"]
+                album_title = data.get('albumName')
+                isrc = data.get('isrc')
+                if album_title:
+                   track_info["album"] = album_title
+                if isrc:
+                    track_info["isrc"] = isrc
+                # Artwork
+                if not self.is_clipart_complete(track_info):
+                    artwork = data.get('artwork')
+                    track_info["small_image"] = artwork["url"].format(w=150, h=150)
+                    track_info["medium_image"] = artwork["url"].format(w=500, h=500)
+                    track_info["large_image"] = artwork["url"].format(w=1200, h=1200)
 
         # LastFM (no ISRC)
         if not self.is_clipart_complete(track_info) and do_title_artist:
