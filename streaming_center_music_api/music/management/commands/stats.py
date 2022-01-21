@@ -33,7 +33,7 @@ class Command(BaseCommand):
         stats_lastfm_requests = int(r.get('stats_lastfm_requests'))
         stats_lastfm_found = int(r.get('stats_lastfm_found'))
         stats_lastfm_errors = int(r.get('stats_lastfm_errors')) if r.get('stats_lastfm_errors') is not None else 0
-        print('\n[lastfm]')
+        print('\n[LastFM]')
         print(f'Total requests: {stats_lastfm_requests}')
         print(f'Found: {stats_lastfm_found}')
         print(f'Failed: {stats_lastfm_errors}')
@@ -41,7 +41,7 @@ class Command(BaseCommand):
         stats_soundexchange_requests = int(r.get('stats_soundexchange_requests'))
         stats_soundexchange_found = int(r.get('stats_soundexchange_found'))
         stats_soundexchange_errors = int(r.get('stats_soundexchange_errors')) if r.get('stats_soundexchange_errors') is not None else 0
-        print('\n[soundexchange]')
+        print('\n[SoundExchange]')
         print(f'Total requests: {stats_soundexchange_requests}')
         print(f'Found: {stats_soundexchange_found}')
         print(f'Failed: {stats_soundexchange_errors}')
@@ -49,7 +49,7 @@ class Command(BaseCommand):
         stats_musicbrainz_requests = int(r.get('stats_musicbrainz_requests'))
         stats_musicbrainz_found = int(r.get('stats_musicbrainz_found'))
         stats_musicbrainz_errors = int(r.get('stats_musicbrainz_errors')) if r.get('stats_musicbrainz_errors') is not None else 0
-        print('\n[musicbrainz]')
+        print('\n[Musicbrainz]')
         print(f'Total requests: {stats_musicbrainz_requests}')
         print(f'Found: {stats_musicbrainz_found}')
         print(f'Failed: {stats_musicbrainz_errors}')
