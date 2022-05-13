@@ -1,0 +1,76 @@
+server {
+	listen 80 default_server;
+	listen [::]:80 default_server;
+	root /var/www/sc_music_api;
+
+	index index.html index.htm index.nginx-debian.html;
+        server_name https://music-api.streaming.center;
+
+	location / {
+		# First attempt to serve request as file, then
+		# as directory, then fall back to displaying a 404.
+		try_files $uri $uri/ =404;
+	}
+	#location /api {
+	#    uwsgi_pass unix:/var/www/sc_music_api/uwsgi.sock;
+	#    include         uwsgi_params;
+	#    uwsgi_param     HTTP_X_FORWARDED_PROTOCOL $scheme;
+	#}
+
+	# pass PHP scripts to FastCGI server
+	#
+	#location ~ \.php$ {
+	#	include snippets/fastcgi-php.conf;
+	#
+	#	# With php-fpm (or other unix sockets):
+	#	fastcgi_pass unix:/var/run/php/php7.4-fpm.sock;
+	#	# With php-cgi (or other tcp sockets):
+	#	fastcgi_pass 127.0.0.1:9000;
+	#}
+
+	# deny access to .htaccess files, if Apache's document root
+	# concurs with nginx's one
+	#
+	#location ~ /\.ht {
+	#	deny all;
+	#}
+}
+
+
+server {
+
+	root /var/www/sc_music_api;
+
+        server_name music-api.streaming.center; # managed by Certbot
+	if ($http_user_agent !~* SCIndexer ) {
+	    return 403;
+	}
+	location / {
+		# First attempt to serve request as file, then
+		# as directory, then fall back to displaying a 404.
+		try_files $uri $uri/ =404;
+	}
+	location /api {
+	    uwsgi_pass unix:/var/www/sc_music_api/uwsgi.sock;
+	    include         uwsgi_params;
+	    uwsgi_param     HTTP_X_FORWARDED_PROTOCOL $scheme;
+	}
+
+	listen [::]:443 ssl ipv6only=on; # managed by Certbot
+	listen 443 ssl; # managed by Certbot
+	ssl_certificate /etc/letsencrypt/live/music-api.streaming.center/fullchain.pem; # managed by Certbot
+	ssl_certificate_key /etc/letsencrypt/live/music-api.streaming.center/privkey.pem; # managed by Certbot
+	include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+	ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+}
+server {
+    if ($host = music-api.streaming.center) {
+        return 301 https://$host$request_uri;
+    } # managed by Certbot
+
+
+    listen 80 ;
+    listen [::]:80 ;
+    server_name music-api.streaming.center;
+    return 404; # managed by Certbot
+}
