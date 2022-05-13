@@ -69,3 +69,10 @@ Deployment
 ----------
 
 The following details how to deploy this application.
+
+- apt install redis supervisor nginx python3-pip certbot mc git net-tools python3-certbot-nginx
+- copy ssh keys id_rsa id_rsa.pub
+- git clone git@github.com:alexey-v-paramonov/sc_music_api.git
+- chown www-data:www-data -R /var/www/sc_music_api
+- 30 2 * * 1 root /usr/bin/letsencrypt renew >> /var/log/le-renew.log
+- certbot  --register-unsafely-without-email --authenticator webroot --installer nginx --webroot-path /var/www/sc_music_api -d music-api.streaming.center
