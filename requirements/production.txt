@@ -2,7 +2,8 @@
 
 -r base.txt
 
-gunicorn==20.1.0  # https://github.com/benoitc/gunicorn
+# gunicorn==20.1.0  # https://github.com/benoitc/gunicorn
+uwsgi==2.0.20
 
 # Django
 # ------------------------------------------------------------------------------
