@@ -42,15 +42,23 @@ server {
 	root /var/www/sc_music_api;
 
         server_name music-api.streaming.center; # managed by Certbot
-	if ($http_user_agent !~* SCIndexer ) {
-	    return 403;
-	}
+        location ^~ /.well-known/acme-challenge/ {
+        }
+
 	location / {
+		if ($http_user_agent !~* SCIndexer ) {
+		    return 403;
+		}
+
 		# First attempt to serve request as file, then
 		# as directory, then fall back to displaying a 404.
 		try_files $uri $uri/ =404;
 	}
 	location /api {
+	    if ($http_user_agent !~* SCIndexer ) {
+		return 403;
+	    }
+
 	    uwsgi_pass unix:/var/www/sc_music_api/uwsgi.sock;
 	    include         uwsgi_params;
 	    uwsgi_param     HTTP_X_FORWARDED_PROTOCOL $scheme;
