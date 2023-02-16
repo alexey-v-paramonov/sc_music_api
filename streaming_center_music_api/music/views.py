@@ -82,7 +82,7 @@ class MusicAPI(APIView):
         r.incr('stats_spotify_requests')
         try:
             results = spotify.search(
-                q=(q if do_q else f"{artist} - {title}"),
+                q=(q if do_q else f"artist:{artist} track:{title}"),
                 limit=1,
                 type="track"
             )
