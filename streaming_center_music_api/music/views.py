@@ -99,6 +99,7 @@ class MusicAPI(APIView):
                 r.incr('stats_spotify_found')
                 track = results["tracks"]["items"][0]
                 ext_ids = track.get("external_ids", {})
+                track_info["source"] = "spotify"
                 track_info["isrc"] = ext_ids.get("isrc", None)
                 album = track.get("album", {})
                 if album.get("images", []) and len(album["images"]) >= 3:
@@ -127,6 +128,7 @@ class MusicAPI(APIView):
                     track_info["album"] = album_title
                 if isrc:
                     track_info["isrc"] = isrc
+                track_info["source"] = "apple"
                 # Artwork
                 if not self.is_clipart_complete(track_info):
                     artwork = data.get('artwork')
@@ -164,6 +166,7 @@ class MusicAPI(APIView):
                         track_info["small_image"] = images[-3]["#text"]
                         track_info["medium_image"] = images[-2]["#text"]
                         track_info["large_image"] = images[-1]["#text"]
+                        track_info["source"] = "lastfm"
 
         # Soundexchange API
         if do_title_artist and not track_info.get("isrc"):
