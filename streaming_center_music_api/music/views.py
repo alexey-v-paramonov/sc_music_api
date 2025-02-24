@@ -5,6 +5,8 @@ import redis
 import spotipy
 import musicbrainzngs
 import applemusicpy
+import re 
+
 
 from django.conf import settings
 from rest_framework import status
@@ -13,6 +15,8 @@ from rest_framework.views import APIView
 from spotipy.cache_handler import CacheFileHandler
 from spotipy.oauth2 import SpotifyClientCredentials
 
+def has_cyrillic(text):
+    return bool(re.search('[а-яА-Я]', text))
 
 class MusicAPI(APIView):
 
@@ -69,40 +73,41 @@ class MusicAPI(APIView):
             return Response(data)
 
         track_info = {}
-        # Spotify API
-        client_credentials_manager = SpotifyClientCredentials(
-            settings.SPOTIFY_CLIENT_ID,
-            settings.SPOTIFY_CLIENT_SECRET,
-            cache_handler=CacheFileHandler(cache_path="/tmp/spotify_token"),
-        )
-        spotify = spotipy.Spotify(
-            client_credentials_manager=client_credentials_manager, requests_timeout=2
-        )
-        results = None
-        r.incr('stats_spotify_requests')
-        try:
-            results = spotify.search(
-                q=(q if do_q else f"artist:{artist} track:{title}"),
-                limit=1,
-                type="track"
+        if not has_cyrillic(q) and not has_cyrillic(artist) and not has_cyrillic(title):
+            # Spotify API
+            client_credentials_manager = SpotifyClientCredentials(
+                settings.SPOTIFY_CLIENT_ID,
+                settings.SPOTIFY_CLIENT_SECRET,
+                cache_handler=CacheFileHandler(cache_path="/tmp/spotify_token"),
             )
-        except Exception as e:
-            r.incr('stats_spotify_errors')
-            pass
+            spotify = spotipy.Spotify(
+                client_credentials_manager=client_credentials_manager, requests_timeout=2
+            )
+            results = None
+            r.incr('stats_spotify_requests')
+            try:
+                results = spotify.search(
+                    q=(q if do_q else f"artist:{artist} track:{title}"),
+                    limit=1,
+                    type="track"
+                )
+            except Exception as e:
+                r.incr('stats_spotify_errors')
+                pass
 
-        if results and results["tracks"]["items"]:
-            r.incr('stats_spotify_found')
-            track = results["tracks"]["items"][0]
-            ext_ids = track.get("external_ids", {})
-            track_info["isrc"] = ext_ids.get("isrc", None)
-            album = track.get("album", {})
-            if album.get("images", []) and len(album["images"]) >= 3:
-                track_info["small_image"] = album["images"][-1]["url"]
-                track_info["medium_image"] = album["images"][-2]["url"]
-                track_info["large_image"] = album["images"][-3]["url"]
-            album_title = album.get('name')
-            if album_title:
-                track_info["album"] = album_title
+            if results and results["tracks"]["items"]:
+                r.incr('stats_spotify_found')
+                track = results["tracks"]["items"][0]
+                ext_ids = track.get("external_ids", {})
+                track_info["isrc"] = ext_ids.get("isrc", None)
+                album = track.get("album", {})
+                if album.get("images", []) and len(album["images"]) >= 3:
+                    track_info["small_image"] = album["images"][-1]["url"]
+                    track_info["medium_image"] = album["images"][-2]["url"]
+                    track_info["large_image"] = album["images"][-3]["url"]
+                album_title = album.get('name')
+                if album_title:
+                    track_info["album"] = album_title
 
         # Apple API
         if not self.is_clipart_complete(track_info) or not track_info.get("isrc") or not track_info.get("album"):
