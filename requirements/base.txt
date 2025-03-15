@@ -13,6 +13,7 @@ django-environ==0.8.1  # https://github.com/joke2k/django-environ
 django-model-utils==4.2.0  # https://github.com/jazzband/django-model-utils
 django-allauth==0.45.0  # https://github.com/pennersr/django-allauth
 django-crispy-forms==1.13.0  # https://github.com/django-crispy-forms/django-crispy-forms
+redis==3.5.3
 django-redis==5.0.0  # https://github.com/jazzband/django-redis
 # Django REST Framework
 djangorestframework==3.12.4  # https://github.com/encode/django-rest-framework
@@ -21,4 +22,4 @@ django-cors-headers==3.10.0 # https://github.com/adamchainz/django-cors-headers
 # Music APIs
 spotipy==2.19.0
 musicbrainzngs==0.7.1
-apple-music-python==1.0.5
+apple-music-python==1.0.6
