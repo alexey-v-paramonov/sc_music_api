@@ -90,7 +90,7 @@ class MusicAPI(APIView):
         r.incr('stats_spotify_requests')
         try:
             results = spotify.search(
-                q=(q if do_q else f"artist:{artist} track:{title}"),
+                q=(f"artist:{artist} track:{title}" if do_title_artist else q),
                 limit=1,
                 type="track"
             )
@@ -118,7 +118,7 @@ class MusicAPI(APIView):
             r.incr('stats_apple_requests')
             apple = applemusicpy.AppleMusic(settings.APPLE_SECRET_KEY, settings.APPLE_KEY_ID, settings.APPLE_TEAM_ID, requests_timeout=5)
             try:
-                results = apple.search(q if do_q else f"{artist} - {title}", types=['songs'], limit=1)
+                results = apple.search(f"{artist} - {title}" if do_title_artist else q, types=['songs'], limit=1)
             except Exception as e:
                 r.incr('stats_apple_errors')
                 pass
