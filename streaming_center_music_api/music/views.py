@@ -56,7 +56,7 @@ class MusicAPI(APIView):
         if do_q and q.find(" - ") > 0:
             artist, title = (q.split(" - ")[0], " - ".join(q.split(" - ")[1:]))
 
-        do_title_artist = title and artist
+        do_title_artist = bool(title and artist)
 
         if not (do_q or do_title_artist):
             return Response(status=status.HTTP_400_BAD_REQUEST)
