@@ -6,7 +6,7 @@ import spotipy
 import musicbrainzngs
 import applemusicpy
 import re 
-
+from difflib import SequenceMatcher as SM
 
 from django.conf import settings
 from rest_framework import status
@@ -52,6 +52,8 @@ class MusicAPI(APIView):
         # artist and title in separate params
         title = request.query_params.get("t", "").strip()
         artist = request.query_params.get("a", "").strip()
+        force_search = request.query_params.get("f", "").strip() == "1"
+        
         do_q = q and len(q) > 5
         if do_q and q.find(" - ") > 0:
             artist, title = (q.split(" - ")[0], " - ".join(q.split(" - ")[1:]))
@@ -67,13 +69,14 @@ class MusicAPI(APIView):
         key = (q if do_q else f"{artist} - {title}").translate(str.maketrans("", "", string.punctuation)).replace(" ", "").lower()
         r = redis.Redis(host="localhost", port=6379, db=0)
         r.incr('stats_total_requests')
-        cached_track_info = r.get(key)
-        if cached_track_info:
-            r.incr('stats_cached_responses')
-            data = json.loads(cached_track_info)
-            data['cached'] = True
-            data["key"] = key
-            return Response(data)
+        if not force_search:
+            cached_track_info = r.get(key)
+            if cached_track_info:
+                r.incr('stats_cached_responses')
+                data = json.loads(cached_track_info)
+                data['cached'] = True
+                data["key"] = key
+                return Response(data)
 
         track_info = {}
         #if not has_cyrillic(q) and not has_cyrillic(artist) and not has_cyrillic(title):
@@ -114,30 +117,32 @@ class MusicAPI(APIView):
                 track_info["album"] = album_title
 
         # Apple API
-        if not self.is_clipart_complete(track_info) or not track_info.get("isrc") or not track_info.get("album"):
+        if not self.is_clipart_complete(track_info) or not track_info.get("isrc") or not track_info.get("album") and do_title_artist:
             r.incr('stats_apple_requests')
             apple = applemusicpy.AppleMusic(settings.APPLE_SECRET_KEY, settings.APPLE_KEY_ID, settings.APPLE_TEAM_ID, requests_timeout=5)
             try:
-                results = apple.search(f"{artist} - {title}" if do_title_artist else q, types=['songs'], limit=1)
+                results = apple.search(f"{artist} - {title}", types=['songs'], limit=1)
             except Exception as e:
                 r.incr('stats_apple_errors')
                 pass
             if results and results["results"].get('songs', []):
-                r.incr('stats_apple_found')
                 data = results["results"]["songs"]["data"][0]["attributes"]
-                album_title = data.get('albumName')
-                isrc = data.get('isrc')
-                if album_title:
-                    track_info["album"] = album_title
-                if isrc:
-                    track_info["isrc"] = isrc
-                track_info["source"] = "apple"
-                # Artwork
-                if not self.is_clipart_complete(track_info):
-                    artwork = data.get('artwork')
-                    track_info["small_image"] = artwork["url"].format(w=150, h=150)
-                    track_info["medium_image"] = artwork["url"].format(w=500, h=500)
-                    track_info["large_image"] = artwork["url"].format(w=1200, h=1200)
+                found_artist = data.get('artistName', "")
+                if found_artist and SM(None, artist, found_artist).ratio() > 0.8:
+                    r.incr('stats_apple_found')
+                    album_title = data.get('albumName')
+                    isrc = data.get('isrc')
+                    if album_title:
+                        track_info["album"] = album_title
+                    if isrc:
+                        track_info["isrc"] = isrc
+                    track_info["source"] = "apple"
+                    # Artwork
+                    if not self.is_clipart_complete(track_info):
+                        artwork = data.get('artwork')
+                        track_info["small_image"] = artwork["url"].format(w=150, h=150)
+                        track_info["medium_image"] = artwork["url"].format(w=500, h=500)
+                        track_info["large_image"] = artwork["url"].format(w=1200, h=1200)
 
         # LastFM (no ISRC)
         if not self.is_clipart_complete(track_info) and do_title_artist:
