@@ -128,8 +128,8 @@ class MusicAPI(APIView):
                 pass
             if results and results["results"].get('songs', []):
                 data = results["results"]["songs"]["data"][0]["attributes"]
-                found_artist = data.get('artistName', "")
-                if found_artist and SM(None, artist, found_artist).ratio() > 0.8:
+                found_artist = data.get('artistName', "").lower().strip()
+                if found_artist and SM(None, artist.lower().strip(), found_artist).ratio() > 0.8:
                     r.incr('stats_apple_found')
                     album_title = data.get('albumName')
                     isrc = data.get('isrc')
