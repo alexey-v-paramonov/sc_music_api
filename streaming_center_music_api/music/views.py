@@ -74,9 +74,10 @@ class MusicAPI(APIView):
             if cached_track_info:
                 r.incr('stats_cached_responses')
                 data = json.loads(cached_track_info)
-                data['cached'] = True
-                data["key"] = key
-                return Response(data)
+                if data.get('source') != 'apple':
+                    data['cached'] = True
+                    data["key"] = key
+                    return Response(data)
 
         track_info = {}
         #if not has_cyrillic(q) and not has_cyrillic(artist) and not has_cyrillic(title):
